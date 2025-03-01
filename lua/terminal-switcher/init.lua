@@ -3,6 +3,17 @@
 
 local M = {}
 
+-- Default configuration
+local default_config = {
+  -- Default keybinding to open terminal picker
+  keybinding = '<leader>ts',
+  -- Automatically set up the keybinding
+  setup_keybinding = true,
+}
+
+-- Plugin configuration
+local config = vim.deepcopy(default_config)
+
 -- Store all terminal instances
 local terminals = {}
 
@@ -101,6 +112,18 @@ function M.setup_keybinding(mapping)
     noremap = true,
     desc = "Open terminal switcher" 
   })
+end
+
+-- Setup function to initialize the plugin with configuration
+function M.setup(opts)
+  -- Update config with user options
+  opts = opts or {}
+  config = vim.tbl_deep_extend("force", default_config, opts)
+  
+  -- Set up keybinding if configured
+  if config.setup_keybinding then
+    M.setup_keybinding(config.keybinding)
+  end
 end
 
 return M
