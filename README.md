@@ -6,7 +6,7 @@ A minimal Neovim plugin that lets you switch between toggleterm instances using 
 
 - Neovim >= 0.7.0
 - [toggleterm.nvim](https://github.com/akinsho/toggleterm.nvim)
-- [snacks.nvim](https://github.com/creativenull/snacks.nvim)
+- [snacks.nvim](https://github.com/folke/snacks.nvim)
 
 ## Installation
 
@@ -17,7 +17,7 @@ use {
   'drumDev29/terminal-switcher',
   requires = {
     'akinsho/toggleterm.nvim',
-    'creativenull/snacks.nvim'
+    'folke/snacks.nvim'
   },
   config = function()
     require('terminal-switcher').setup()
@@ -32,7 +32,7 @@ use {
   'drumDev29/terminal-switcher',
   dependencies = {
     'akinsho/toggleterm.nvim',
-    'creativenull/snacks.nvim'
+    'folke/snacks.nvim'
   },
   config = function()
     require('terminal-switcher').setup({
