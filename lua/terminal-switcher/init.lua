@@ -112,37 +112,34 @@ function M.pick_terminal()
     return
   end
   
-  -- Create simple string items for picker to avoid concatenation issues
-  local term_strings = {}
-  local term_lookup = {}
-  local index = 1
-  
+  -- Create items for picker
+  local items = {}
   for id, term in pairs(all_terms) do
-    -- Create a simple string for display
-    local display_text = tostring(id) .. ": " .. term.name
-    term_strings[index] = display_text
-    term_lookup[display_text] = term
-    index = index + 1
+    table.insert(items, {
+      id = id,
+      name = term.name,
+      instance = term.instance
+    })
   end
   
-  -- Sort strings numerically by terminal ID
-  table.sort(term_strings, function(a, b)
-    local id_a = tonumber(string.match(a, "^(%d+):"))
-    local id_b = tonumber(string.match(b, "^(%d+):"))
-    return id_a < id_b
-  end)
+  -- Sort items by terminal ID
+  table.sort(items, function(a, b) return a.id < b.id end)
   
-  -- Use picker with simple strings to avoid table concatenation
-  if snacks.picker and snacks.picker.pick then
-    snacks.picker.pick(term_strings, {
+  -- Use snacks.pick (function directly provided by snacks)
+  if type(snacks.pick) == "function" then
+    snacks.pick(items, {
       prompt = "Switch Terminal",
-    }, function(selected)
-      if selected and term_lookup[selected] and term_lookup[selected].instance then
-        term_lookup[selected].instance:toggle()
+      label = function(item)
+        return item.id .. ": " .. item.name
+      end,
+      on_choice = function(item)
+        if item and item.instance then
+          item.instance:toggle()
+        end
       end
-    end)
+    })
   else
-    vim.notify("Unsupported snacks.nvim API. Please ensure you're using the correct version", vim.log.levels.ERROR)
+    vim.notify("The snacks.pick function is not available. Make sure you have the latest version of folke/snacks.nvim", vim.log.levels.ERROR)
   end
 end
 
