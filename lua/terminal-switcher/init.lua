@@ -210,8 +210,8 @@ function M.pick_terminal()
       win = {
         list = {
           keys = {
-            ["c"] = { function(picker) create_new_terminal(picker) end, desc = "Create New Terminal" },
-            ["d"] = { delete_terminal, desc = "Delete Terminal" },
+            ["a"] = { function(picker) create_new_terminal(picker) end, desc = "Add New Terminal" },
+            ["x"] = { delete_terminal, desc = "Delete Terminal" },
           }
         }
       },
