@@ -95,57 +95,33 @@ function M.toggle_terminal(id)
   end
 end
 
--- Generate a preview of terminal history/content
-local function generate_terminal_preview(terminal_instance)
-  if not terminal_instance then
-    return { text = "No terminal selected", ft = "text" }
-  end
-  
-  -- Try to get terminal buffer ID directly from the toggleterm instance
-  local buf = terminal_instance._bufnr -- Access the internal buffer number
-  
-  -- If buffer not found in the instance, try finding it
-  if not buf or not vim.api.nvim_buf_is_valid(buf) then
-    -- Try to get the buffer from the display name
-    local term_id = terminal_instance.id
-    -- Loop through all buffers to find matching terminal
-    for _, bufid in ipairs(vim.api.nvim_list_bufs()) do
-      local buf_name = vim.api.nvim_buf_get_name(bufid)
-      -- Check if buffer is a terminal with matching ID
-      if buf_name:match("term://.*#toggleterm#" .. term_id .. ";") then
-        buf = bufid
-        break
-      end
+-- Get a live preview of terminal content
+local function get_terminal_preview(terminal)
+  -- Direct approach - use the terminal file path for preview
+  if terminal then
+    local term_id = terminal.id
+    local term_dir = ""
+    
+    if terminal.dir then
+      term_dir = terminal.dir
     end
+    
+    -- For running terminals, return the buffer directly for preview
+    -- This lets snacks handle the preview display automatically
+    if terminal.bufnr and vim.api.nvim_buf_is_valid(terminal.bufnr) then
+      return { bufnr = terminal.bufnr }
+    end
+    
+    -- If terminal exists but isn't running, provide info message
+    local text = "Terminal " .. term_id .. " exists but hasn't been started yet.\n\n"
+    text = text .. "Command: " .. (terminal.cmd or "Default shell") .. "\n"
+    text = text .. "Directory: " .. (term_dir ~= "" and term_dir or "Default working directory") .. "\n\n"
+    text = text .. "Press <Enter> to start this terminal."
+    
+    return { text = text, ft = "markdown" }
   end
   
-  -- Still no valid buffer found
-  if not buf or not vim.api.nvim_buf_is_valid(buf) then
-    return { text = "Terminal content not available (terminal not started)", ft = "text" }
-  end
-  
-  -- Get terminal content/history
-  local lines = {}
-  local success, err = pcall(function()
-    lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  end)
-  
-  if not success or #lines == 0 then
-    return { text = "Unable to get terminal content\nError: " .. (err or "No content"), ft = "text" }
-  end
-  
-  -- Limit the number of lines to avoid extremely large previews
-  local max_lines = 300
-  if #lines > max_lines then
-    lines = vim.list_slice(lines, #lines - max_lines, #lines)
-    table.insert(lines, 1, "... (older content omitted) ...")
-  end
-  
-  return {
-    text = table.concat(lines, "\n"),
-    ft = "terminal",
-    loc = false -- Disable showing item location in preview
-  }
+  return { text = "No terminal selected", ft = "text" }
 end
 
 -- Show snacks picker to select and toggle terminal
@@ -212,9 +188,9 @@ function M.pick_terminal()
       id = id,
       text = id .. ": " .. term.name,
       terminal = term.instance,
-      -- Create preview function that will be called when item is selected
+      -- Get direct preview of the terminal
       preview = function()
-        return generate_terminal_preview(term.instance)
+        return get_terminal_preview(term.instance)
       end
     })
   end
@@ -228,8 +204,12 @@ function M.pick_terminal()
       items = items,
       prompt = "⚡ Terminal",
       preview = "preview", -- Use the preview function from each item
-      formatters = {
-        text = { ft = "terminal" }, -- Set filetype for text highlights
+      previewers = {
+        -- Enhanced preview settings for better terminal display
+        file = {
+          max_size = 5 * 1024 * 1024, -- 5MB to handle larger terminal output
+          ft = "terminal" -- Set filetype for terminal highlighting
+        }
       },
       format = function(item)
         return {{item.text}}
