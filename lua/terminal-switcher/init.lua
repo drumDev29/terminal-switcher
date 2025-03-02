@@ -205,7 +205,7 @@ function M.pick_terminal()
     -- Use a more direct approach with snacks
     snacks.picker.pick({
       items = items,
-      prompt = "⚡ Terminal",
+      prompt = "⚡ Terminal Switcher [a: Add | x: Delete | Enter: Toggle | Esc: Normal Mode]",
       preview = "preview", -- Use the preview function
       format = function(item)
         return {{item.text}}
@@ -225,6 +225,14 @@ function M.pick_terminal()
         end
       },
       win = {
+        input = {
+          keys = {
+            -- Let Escape enter normal mode instead of closing
+            ["<Esc>"] = { "normal_mode", mode = "i" },
+            ["a"] = "add_terminal",
+            ["x"] = "delete_terminal"
+          }
+        },
         list = {
           keys = {
             ["a"] = "add_terminal",
