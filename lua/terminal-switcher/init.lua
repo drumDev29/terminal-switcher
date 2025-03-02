@@ -96,20 +96,43 @@ function M.toggle_terminal(id)
 end
 
 -- Generate a preview of terminal history/content
-local function generate_terminal_preview(terminal)
-  if not terminal then
+local function generate_terminal_preview(terminal_instance)
+  if not terminal_instance then
     return { text = "No terminal selected", ft = "text" }
   end
   
-  -- Try to get terminal buffer
-  local buf = terminal.bufnr
+  -- Try to get terminal buffer ID directly from the toggleterm instance
+  local buf = terminal_instance._bufnr -- Access the internal buffer number
   
+  -- If buffer not found in the instance, try finding it
   if not buf or not vim.api.nvim_buf_is_valid(buf) then
-    return { text = "Terminal preview not available", ft = "text" }
+    -- Try to get the buffer from the display name
+    local term_id = terminal_instance.id
+    -- Loop through all buffers to find matching terminal
+    for _, bufid in ipairs(vim.api.nvim_list_bufs()) do
+      local buf_name = vim.api.nvim_buf_get_name(bufid)
+      -- Check if buffer is a terminal with matching ID
+      if buf_name:match("term://.*#toggleterm#" .. term_id .. ";") then
+        buf = bufid
+        break
+      end
+    end
+  end
+  
+  -- Still no valid buffer found
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
+    return { text = "Terminal content not available (terminal not started)", ft = "text" }
   end
   
   -- Get terminal content/history
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local lines = {}
+  local success, err = pcall(function()
+    lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  end)
+  
+  if not success or #lines == 0 then
+    return { text = "Unable to get terminal content\nError: " .. (err or "No content"), ft = "text" }
+  end
   
   -- Limit the number of lines to avoid extremely large previews
   local max_lines = 300
@@ -189,6 +212,7 @@ function M.pick_terminal()
       id = id,
       text = id .. ": " .. term.name,
       terminal = term.instance,
+      -- Create preview function that will be called when item is selected
       preview = function()
         return generate_terminal_preview(term.instance)
       end
@@ -203,7 +227,10 @@ function M.pick_terminal()
     snacks.picker.pick({
       items = items,
       prompt = "⚡ Terminal",
-      preview = "preview", -- Use the item's preview field
+      preview = "preview", -- Use the preview function from each item
+      formatters = {
+        text = { ft = "terminal" }, -- Set filetype for text highlights
+      },
       format = function(item)
         return {{item.text}}
       end,
