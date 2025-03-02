@@ -112,7 +112,6 @@ function M.pick_terminal()
     table.insert(items, {
       id = id,
       text = id .. ": " .. term.name,
-      value = id,
       term = term
     })
   end
@@ -126,25 +125,21 @@ function M.pick_terminal()
   -- Sort items by ID
   table.sort(items, function(a, b) return a.id < b.id end)
   
-  -- Create display strings list for snacks
-  local display_items = {}
-  local term_data = {}
-  
-  for i, item in ipairs(items) do
-    table.insert(display_items, item.text)
-    term_data[i] = item.term
-  end
-  
-  -- Open snacks picker using the core API
-  snacks.prompt({
-    prompt = "Switch Terminal",
-    items = display_items,
-    on_select = function(_, idx)
-      if idx and term_data[idx] and term_data[idx].instance then
-        term_data[idx].instance:toggle()
+  -- Open snacks picker using picker.pick
+  if snacks.picker and snacks.picker.pick then
+    snacks.picker.pick(items, {
+      prompt = "Switch Terminal",
+      format_item = function(item)
+        return item.text
       end
-    end
-  })
+    }, function(item)
+      if item and item.term and item.term.instance then
+        item.term.instance:toggle()
+      end
+    end)
+  else
+    vim.notify("Unsupported snacks.nvim API. Please ensure you're using the correct version", vim.log.levels.ERROR)
+  end
 end
 
 -- List all terminal instances (both custom and toggleterm instances)
