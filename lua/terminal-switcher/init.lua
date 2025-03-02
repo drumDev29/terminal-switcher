@@ -95,6 +95,36 @@ function M.toggle_terminal(id)
   end
 end
 
+-- Generate a preview of terminal history/content
+local function generate_terminal_preview(terminal)
+  if not terminal then
+    return { text = "No terminal selected", ft = "text" }
+  end
+  
+  -- Try to get terminal buffer
+  local buf = terminal.bufnr
+  
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
+    return { text = "Terminal preview not available", ft = "text" }
+  end
+  
+  -- Get terminal content/history
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  
+  -- Limit the number of lines to avoid extremely large previews
+  local max_lines = 300
+  if #lines > max_lines then
+    lines = vim.list_slice(lines, #lines - max_lines, #lines)
+    table.insert(lines, 1, "... (older content omitted) ...")
+  end
+  
+  return {
+    text = table.concat(lines, "\n"),
+    ft = "terminal",
+    loc = false -- Disable showing item location in preview
+  }
+end
+
 -- Show snacks picker to select and toggle terminal
 function M.pick_terminal()
   local ok, snacks = pcall(require, "snacks")
@@ -106,9 +136,49 @@ function M.pick_terminal()
   -- Get all terminals (including toggleterm instances)
   local all_terms = get_all_terminals()
   
-  -- No terminals to show
+  -- Setup creation action
+  local function create_new_terminal(picker)
+    picker:close()
+    vim.ui.input({ prompt = "Terminal name: " }, function(name)
+      if not name or name == "" then return end
+      
+      vim.ui.input({ prompt = "Command (optional): " }, function(cmd)
+        local id = M.create_terminal(name, cmd ~= "" and cmd or nil)
+        if id then
+          vim.schedule(function() 
+            M.toggle_terminal(id)
+            vim.notify("Terminal '" .. name .. "' created with ID " .. id)
+          end)
+        end
+      end)
+    end)
+  end
+  
+  -- Setup delete action
+  local function delete_terminal(picker)
+    local item = picker:current()
+    if item and item.id then
+      picker:close()
+      vim.ui.input({
+        prompt = "Delete terminal '" .. item.text .. "'? (y/N): "
+      }, function(input)
+        if input and (input:lower() == "y" or input:lower() == "yes") then
+          M.delete_terminal(item.id)
+          vim.notify("Terminal deleted")
+        end
+      end)
+    end
+  end
+  
+  -- No terminals to show - Ask to create one
   if vim.tbl_isempty(all_terms) then
-    vim.notify("No terminals available", vim.log.levels.INFO)
+    vim.ui.input({
+      prompt = "No terminals available. Create one? (y/N): "
+    }, function(input)
+      if input and (input:lower() == "y" or input:lower() == "yes") then
+        create_new_terminal({ close = function() end })
+      end
+    end)
     return
   end
   
@@ -118,7 +188,10 @@ function M.pick_terminal()
     table.insert(items, {
       id = id,
       text = id .. ": " .. term.name,
-      terminal = term.instance
+      terminal = term.instance,
+      preview = function()
+        return generate_terminal_preview(term.instance)
+      end
     })
   end
   
@@ -129,10 +202,19 @@ function M.pick_terminal()
   if snacks.picker then
     snacks.picker.pick({
       items = items,
-      prompt = "Switch Terminal",
+      prompt = "⚡ Terminal",
+      preview = "preview", -- Use the item's preview field
       format = function(item)
         return {{item.text}}
       end,
+      win = {
+        list = {
+          keys = {
+            ["c"] = { function(picker) create_new_terminal(picker) end, desc = "Create New Terminal" },
+            ["d"] = { delete_terminal, desc = "Delete Terminal" },
+          }
+        }
+      },
       confirm = function(picker, item)
         picker:close()
         if item and item.terminal then

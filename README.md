@@ -42,6 +42,16 @@ local node_term = ts.create_terminal("Node", "node")
 ts.toggle_terminal(git_term)
 ```
 
+### Picker Commands
+
+When the terminal picker is open:
+
+- `<Enter>` - Open the selected terminal
+- `c` - Create a new terminal
+- `d` - Delete the selected terminal
+
+The terminal preview window shows the history/content of the selected terminal.
+
 The plugin also provides the `:TerminalSwitch` command.
 
 ## Configuration
