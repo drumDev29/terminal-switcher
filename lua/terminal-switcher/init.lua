@@ -206,7 +206,8 @@ function M.pick_terminal()
     snacks.picker.pick({
       items = items,
       prompt = "⚡ Terminal Switcher [a: Add | x: Delete | Enter: Toggle | Esc: Normal Mode]",
-      preview = "preview", -- Use the preview function
+      preview = false, -- Disable preview completely
+      layout = "vertical", -- Use vertical layout, more compact without preview
       format = function(item)
         return {{item.text}}
       end,
