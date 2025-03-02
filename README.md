@@ -1,6 +1,6 @@
 # Terminal Switcher
 
-A minimal Neovim plugin that lets you switch between toggleterm instances using the snacks picker.
+A minimal Neovim plugin that lets you switch between toggleterm instances using the snacks picker. Works automatically with existing toggleterm terminals without requiring manual registration.
 
 ## Requirements
 
@@ -52,20 +52,22 @@ First, set up the plugin (if not using lazy.nvim's config option):
 require('terminal-switcher').setup()
 ```
 
-The plugin provides a simple API to create and manage terminal instances, and a picker to switch between them:
+The plugin automatically works with existing toggleterm terminals. Just press the keybinding (default: `<leader>ts`) to open the picker and select a terminal.
+
+You can also use the API to create and manage terminal instances:
 
 ```lua
 local ts = require('terminal-switcher')
 
--- Create a new terminal
+-- Create a new terminal (optional, works with existing toggleterm instances)
 local id1 = ts.create_terminal("Git", "git status")
 local id2 = ts.create_terminal("Node REPL", "node")
 local id3 = ts.create_terminal("Bash", nil, { dir = "~/" })
 
--- Toggle a specific terminal
+-- Toggle a specific terminal by ID
 ts.toggle_terminal(id1)
 
--- Open the picker to switch between terminals
+-- Open the picker to switch between all terminals (including toggleterm instances)
 ts.pick_terminal()
 
 -- Note: A keybinding is set up by default when you call setup()
@@ -101,17 +103,18 @@ require('terminal-switcher').setup({
 
 local ts = require('terminal-switcher')
 
--- Create a set of terminal instances at startup
+-- Optional: Create named terminal instances for common tasks
 ts.create_terminal("Git", "git status", { dir = vim.fn.getcwd() })
 ts.create_terminal("Node REPL", "node")
 ts.create_terminal("Python REPL", "python")
-ts.create_terminal("Shell", nil)
 
 -- Add your own keybindings for specific terminals
 vim.keymap.set('n', '<leader>tg', function()
-  ts.toggle_terminal(1)  -- Toggle the Git terminal
+  ts.toggle_terminal(1)  -- Toggle terminal with ID 1
 end, { desc = 'Toggle Git terminal' })
 ```
+
+Note: Even if you don't create any terminals with `create_terminal()`, the plugin will still work with all existing toggleterm instances.
 
 ## License
 

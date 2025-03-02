@@ -48,10 +48,48 @@ function M.create_terminal(name, cmd, opts)
   return id
 end
 
+-- Get all available terminals (both custom and toggleterm instances)
+local function get_all_terminals()
+  local ok, toggleterm = pcall(require, "toggleterm.terminal")
+  if not ok then
+    vim.notify("toggleterm.nvim is required", vim.log.levels.ERROR)
+    return {}
+  end
+  
+  local all_terms = {}
+  
+  -- First, add our manually registered terminals
+  for id, term in pairs(terminals) do
+    all_terms[id] = term
+  end
+  
+  -- Then, check for any toggleterm terminals we haven't registered
+  if toggleterm and toggleterm.get_all then
+    local tt_terms = toggleterm.get_all()
+    for _, term in pairs(tt_terms) do
+      local term_id = term.id
+      
+      -- Only add if we don't already have it registered
+      if not all_terms[term_id] then
+        all_terms[term_id] = {
+          id = term_id,
+          name = "Terminal " .. term_id,
+          cmd = term.cmd or "",
+          instance = term
+        }
+      end
+    end
+  end
+  
+  return all_terms
+end
+
 -- Toggle a specific terminal by ID
 function M.toggle_terminal(id)
-  if terminals[id] and terminals[id].instance then
-    terminals[id].instance:toggle()
+  local all_terms = get_all_terminals()
+  
+  if all_terms[id] and all_terms[id].instance then
+    all_terms[id].instance:toggle()
   else
     vim.notify("Terminal " .. id .. " does not exist", vim.log.levels.ERROR)
   end
@@ -65,13 +103,17 @@ function M.pick_terminal()
     return
   end
   
+  -- Get all terminals (including toggleterm instances)
+  local all_terms = get_all_terminals()
+  
   -- Build list of terminals for picker
   local items = {}
-  for id, term in pairs(terminals) do
+  for id, term in pairs(all_terms) do
     table.insert(items, {
       id = id,
       text = id .. ": " .. term.name,
-      value = id
+      value = id,
+      term = term
     })
   end
   
@@ -81,21 +123,24 @@ function M.pick_terminal()
     return
   end
   
+  -- Sort items by ID
+  table.sort(items, function(a, b) return a.id < b.id end)
+  
   -- Open snacks picker
   snacks.select({
     prompt = "Switch Terminal",
     items = items,
     on_select = function(item)
-      if item then
-        M.toggle_terminal(item.value)
+      if item and item.term and item.term.instance then
+        item.term.instance:toggle()
       end
     end
   })
 end
 
--- List all terminal instances
+-- List all terminal instances (both custom and toggleterm instances)
 function M.list_terminals()
-  return terminals
+  return get_all_terminals()
 end
 
 -- Delete a terminal instance
