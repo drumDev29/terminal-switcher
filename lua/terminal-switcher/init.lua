@@ -96,32 +96,46 @@ function M.toggle_terminal(id)
 end
 
 -- Get a live preview of terminal content
-local function get_terminal_preview(terminal)
-  -- Direct approach - use the terminal file path for preview
+local function get_terminal_preview(terminal_info)
+  local terminal = terminal_info
+  
+  -- Direct approach using toggleterm's buffer
   if terminal then
-    local term_id = terminal.id
-    local term_dir = ""
+    local term_id = terminal.id or "unknown"
     
-    if terminal.dir then
-      term_dir = terminal.dir
-    end
-    
-    -- For running terminals, return the buffer directly for preview
-    -- This lets snacks handle the preview display automatically
+    -- For terminals with a valid buffer, show buffer content
     if terminal.bufnr and vim.api.nvim_buf_is_valid(terminal.bufnr) then
-      return { bufnr = terminal.bufnr }
+      -- Get terminal content as text
+      local lines = vim.api.nvim_buf_get_lines(terminal.bufnr, 0, -1, false)
+      local content = table.concat(lines, "\n")
+      
+      -- If content exists, show it
+      if content and content:len() > 0 then
+        return {
+          text = content,
+          ft = "terminal"
+        }
+      end
     end
     
-    -- If terminal exists but isn't running, provide info message
-    local text = "Terminal " .. term_id .. " exists but hasn't been started yet.\n\n"
+    -- If terminal exists but content can't be shown, provide info
+    local term_dir = terminal.dir or ""
+    local text = "Terminal " .. term_id .. " exists but content can't be displayed yet.\n\n"
     text = text .. "Command: " .. (terminal.cmd or "Default shell") .. "\n"
     text = text .. "Directory: " .. (term_dir ~= "" and term_dir or "Default working directory") .. "\n\n"
-    text = text .. "Press <Enter> to start this terminal."
+    text = text .. "Press <Enter> to start or toggle this terminal."
     
-    return { text = text, ft = "markdown" }
+    return {
+      text = text,
+      ft = "markdown"
+    }
   end
   
-  return { text = "No terminal selected", ft = "text" }
+  -- Default fallback
+  return {
+    text = "No terminal selected",
+    ft = "text"
+  }
 end
 
 -- Show snacks picker to select and toggle terminal
