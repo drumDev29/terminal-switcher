@@ -126,27 +126,25 @@ function M.pick_terminal()
   -- Sort items by ID
   table.sort(items, function(a, b) return a.id < b.id end)
   
-  -- Open snacks picker - check if new or old API is used
-  if snacks.menu then
-    -- New API (folke/snacks.nvim)
-    snacks.menu({
-      title = "Switch Terminal",
-      items = vim.tbl_map(function(item)
-        return {
-          label = item.text,
-          value = item,
-        }
-      end, items),
-      callback = function(item)
-        if item and item.value and item.value.term and item.value.term.instance then
-          item.value.term.instance:toggle()
-        end
-      end,
-    })
-  else
-    -- Fallback API (might be a different snacks implementation)
-    vim.notify("Unsupported snacks.nvim implementation. Please use folke/snacks.nvim", vim.log.levels.ERROR)
+  -- Create display strings list for snacks
+  local display_items = {}
+  local term_data = {}
+  
+  for i, item in ipairs(items) do
+    table.insert(display_items, item.text)
+    term_data[i] = item.term
   end
+  
+  -- Open snacks picker using the core API
+  snacks.prompt({
+    prompt = "Switch Terminal",
+    items = display_items,
+    on_select = function(_, idx)
+      if idx and term_data[idx] and term_data[idx].instance then
+        term_data[idx].instance:toggle()
+      end
+    end
+  })
 end
 
 -- List all terminal instances (both custom and toggleterm instances)
