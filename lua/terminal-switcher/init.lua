@@ -106,35 +106,39 @@ function M.pick_terminal()
   -- Get all terminals (including toggleterm instances)
   local all_terms = get_all_terminals()
   
-  -- Build list of terminals for picker
-  local items = {}
-  for id, term in pairs(all_terms) do
-    table.insert(items, {
-      id = id,
-      text = id .. ": " .. term.name,
-      term = term
-    })
-  end
-  
   -- No terminals to show
-  if #items == 0 then
+  if vim.tbl_isempty(all_terms) then
     vim.notify("No terminals available", vim.log.levels.INFO)
     return
   end
   
-  -- Sort items by ID
-  table.sort(items, function(a, b) return a.id < b.id end)
+  -- Create simple string items for picker to avoid concatenation issues
+  local term_strings = {}
+  local term_lookup = {}
+  local index = 1
   
-  -- Open snacks picker using picker.pick
+  for id, term in pairs(all_terms) do
+    -- Create a simple string for display
+    local display_text = tostring(id) .. ": " .. term.name
+    term_strings[index] = display_text
+    term_lookup[display_text] = term
+    index = index + 1
+  end
+  
+  -- Sort strings numerically by terminal ID
+  table.sort(term_strings, function(a, b)
+    local id_a = tonumber(string.match(a, "^(%d+):"))
+    local id_b = tonumber(string.match(b, "^(%d+):"))
+    return id_a < id_b
+  end)
+  
+  -- Use picker with simple strings to avoid table concatenation
   if snacks.picker and snacks.picker.pick then
-    snacks.picker.pick(items, {
+    snacks.picker.pick(term_strings, {
       prompt = "Switch Terminal",
-      format_item = function(item)
-        return item.text
-      end
-    }, function(item)
-      if item and item.term and item.term.instance then
-        item.term.instance:toggle()
+    }, function(selected)
+      if selected and term_lookup[selected] and term_lookup[selected].instance then
+        term_lookup[selected].instance:toggle()
       end
     end)
   else
