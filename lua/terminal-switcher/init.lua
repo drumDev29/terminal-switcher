@@ -95,47 +95,22 @@ function M.toggle_terminal(id)
   end
 end
 
--- Get a live preview of terminal content
-local function get_terminal_preview(terminal_info)
-  local terminal = terminal_info
-  
-  -- Direct approach using toggleterm's buffer
-  if terminal then
-    local term_id = terminal.id or "unknown"
-    
-    -- For terminals with a valid buffer, show buffer content
-    if terminal.bufnr and vim.api.nvim_buf_is_valid(terminal.bufnr) then
-      -- Get terminal content as text
-      local lines = vim.api.nvim_buf_get_lines(terminal.bufnr, 0, -1, false)
-      local content = table.concat(lines, "\n")
-      
-      -- If content exists, show it
-      if content and content:len() > 0 then
-        return {
-          text = content,
-          ft = "terminal"
-        }
-      end
-    end
-    
-    -- If terminal exists but content can't be shown, provide info
-    local term_dir = terminal.dir or ""
-    local text = "Terminal " .. term_id .. " exists but content can't be displayed yet.\n\n"
-    text = text .. "Command: " .. (terminal.cmd or "Default shell") .. "\n"
-    text = text .. "Directory: " .. (term_dir ~= "" and term_dir or "Default working directory") .. "\n\n"
-    text = text .. "Press <Enter> to start or toggle this terminal."
-    
-    return {
-      text = text,
-      ft = "markdown"
-    }
+-- Generate a preview of terminal content - empty if not found
+local function terminal_preview(terminal)
+  if not terminal or not terminal.bufnr or not vim.api.nvim_buf_is_valid(terminal.bufnr) then
+    -- Return empty preview if no content
+    return { text = "", ft = "text" }
   end
   
-  -- Default fallback
-  return {
-    text = "No terminal selected",
-    ft = "text"
-  }
+  -- Get terminal content
+  local lines = vim.api.nvim_buf_get_lines(terminal.bufnr, 0, -1, false)
+  if #lines == 0 then
+    -- Return empty preview if no content
+    return { text = "", ft = "text" }
+  end
+  
+  -- Return content
+  return { text = table.concat(lines, "\n"), ft = "terminal" }
 end
 
 -- Show snacks picker to select and toggle terminal
@@ -195,56 +170,82 @@ function M.pick_terminal()
     return
   end
   
-  -- Create items for picker
-  local items = {}
+  -- Create simple array of selectable items
+  local term_items = {}
+  local term_data = {}  -- Map for lookup by index
+  
   for id, term in pairs(all_terms) do
-    table.insert(items, {
-      id = id,
-      text = id .. ": " .. term.name,
-      terminal = term.instance,
-      -- Get direct preview of the terminal
-      preview = function()
-        return get_terminal_preview(term.instance)
-      end
-    })
+    table.insert(term_items, id .. ": " .. term.name)
+    term_data[#term_items] = term
   end
   
   -- Sort items by terminal ID
-  table.sort(items, function(a, b) return a.id < b.id end)
+  table.sort(term_items, function(a, b)
+    local id_a = tonumber(string.match(a, "^(%d+):"))
+    local id_b = tonumber(string.match(b, "^(%d+):"))
+    return id_a < id_b
+  end)
   
-  -- Use Snacks.picker
-  if snacks.picker then
+  -- Determine if we use vim.ui.select or snacks
+  local use_ui_select = not snacks or not snacks.picker
+  
+  -- Try to use snacks picker with simpler approach
+  if not use_ui_select then
+    local items = {}
+    for i, text in ipairs(term_items) do
+      table.insert(items, {
+        text = text,
+        terminal = term_data[i].instance,
+        preview = function()
+          return terminal_preview(term_data[i].instance)
+        end
+      })
+    end
+    
+    -- Use a more direct approach with snacks
     snacks.picker.pick({
       items = items,
       prompt = "⚡ Terminal",
-      preview = "preview", -- Use the preview function from each item
-      previewers = {
-        -- Enhanced preview settings for better terminal display
-        file = {
-          max_size = 5 * 1024 * 1024, -- 5MB to handle larger terminal output
-          ft = "terminal" -- Set filetype for terminal highlighting
-        }
-      },
+      preview = "preview", -- Use the preview function
       format = function(item)
         return {{item.text}}
       end,
-      win = {
-        list = {
-          keys = {
-            ["a"] = { function(picker) create_new_terminal(picker) end, desc = "Add New Terminal" },
-            ["x"] = { delete_terminal, desc = "Delete Terminal" },
-          }
-        }
-      },
       confirm = function(picker, item)
         picker:close()
         if item and item.terminal then
           item.terminal:toggle()
         end
-      end
+      end,
+      actions = {
+        add_terminal = function(picker)
+          create_new_terminal(picker)
+        end,
+        delete_terminal = function(picker)
+          delete_terminal(picker)
+        end
+      },
+      win = {
+        list = {
+          keys = {
+            ["a"] = "add_terminal",
+            ["x"] = "delete_terminal"
+          }
+        }
+      }
     })
   else
-    vim.notify("Snacks.picker is not available. Make sure you have the latest version of folke/snacks.nvim", vim.log.levels.ERROR)
+    -- Fallback to vim.ui.select which is guaranteed to work
+    vim.ui.select(term_items, {
+      prompt = "Select Terminal:",
+      format_item = function(item) return item end
+    }, function(choice, idx)
+      if idx and term_data[idx] and term_data[idx].instance then
+        term_data[idx].instance:toggle()
+      end
+    end)
+    
+    -- Let user know they can enhance the experience
+    vim.notify("Using basic selector. Install 'folke/snacks.nvim' for enhanced picker with previews.", vim.log.levels.INFO)
   end
 end
 
