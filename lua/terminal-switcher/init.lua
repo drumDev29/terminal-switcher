@@ -117,29 +117,31 @@ function M.pick_terminal()
   for id, term in pairs(all_terms) do
     table.insert(items, {
       id = id,
-      name = term.name,
-      instance = term.instance
+      text = id .. ": " .. term.name,
+      terminal = term.instance
     })
   end
   
   -- Sort items by terminal ID
   table.sort(items, function(a, b) return a.id < b.id end)
   
-  -- Use snacks.pick (function directly provided by snacks)
-  if type(snacks.pick) == "function" then
-    snacks.pick(items, {
+  -- Use Snacks.picker
+  if snacks.picker then
+    snacks.picker.pick({
+      items = items,
       prompt = "Switch Terminal",
-      label = function(item)
-        return item.id .. ": " .. item.name
+      format = function(item)
+        return {{item.text}}
       end,
-      on_choice = function(item)
-        if item and item.instance then
-          item.instance:toggle()
+      confirm = function(picker, item)
+        picker:close()
+        if item and item.terminal then
+          item.terminal:toggle()
         end
       end
     })
   else
-    vim.notify("The snacks.pick function is not available. Make sure you have the latest version of folke/snacks.nvim", vim.log.levels.ERROR)
+    vim.notify("Snacks.picker is not available. Make sure you have the latest version of folke/snacks.nvim", vim.log.levels.ERROR)
   end
 end
 
